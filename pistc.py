@@ -86,6 +86,29 @@ def parse_line(line):
     return indent, text
 
 
+def _compile_block_call(text, lines, i, indent):
+    """Compile a block call and its (possibly nested) children.
+    Returns (python_code_string, next_line_index)."""
+    children_py = []
+    j = i + 1
+    while j < len(lines):
+        child_raw = lines[j]
+        if not child_raw.strip():
+            j += 1
+            continue
+        child_indent, child_text = parse_line(child_raw)
+        if child_indent <= indent:
+            break
+        if is_block_call(child_text, lines, j, child_indent):
+            child_code, j = _compile_block_call(child_text, lines, j, child_indent)
+            children_py.append(child_code)
+        else:
+            children_py.append(convert_token(child_text))
+            j += 1
+    args = ", ".join(children_py)
+    return f"{text}({args})", j
+
+
 def compile_pist(source):
     output = []
     stack = [0]
@@ -106,23 +129,8 @@ def compile_pist(source):
             output.append(" " * (len(stack)-1)*4)
 
         if is_block_call(text, lines, i, indent):
-            children_text = []
-            j = i + 1
-            while j < len(lines):
-                child_raw = lines[j]
-                if not child_raw.strip():
-                    j += 1
-                    continue
-                child_indent, child_text = parse_line(child_raw)
-                if child_indent <= indent:
-                    break
-                children_text.append(child_text)
-                j += 1
-
-            args = ", ".join(convert_token(c) for c in children_text)
-            py = f"{text}({args})"
+            py, i = _compile_block_call(text, lines, i, indent)
             output.append(" " * (len(stack)-1)*4 + py)
-            i = j
             continue
 
         py = convert_statement(text)
