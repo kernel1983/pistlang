@@ -9,3 +9,9 @@ fn square [x]
 
 print
     [square 10]
+
+print
+    [list [map [fn [x] * x x] l]]
+
+print [list [map [fn [x] * x x] l]]
+

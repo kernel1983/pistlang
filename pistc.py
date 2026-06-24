@@ -21,9 +21,22 @@ def tokenize_expr(s):
     fn = tokens[0]
     args = tokens[1:]
 
+    if fn == "fn" and args:
+        params = args[0]
+        if params.startswith("[") and params.endswith("]"):
+            params = ", ".join(p for p in params[1:-1].split())
+        body_tokens = args[1:]
+        if len(body_tokens) == 3 and body_tokens[0] in {"+", "-", "*", "/", "%", ">", "<", "=="}:
+            body = f"{convert_token(body_tokens[1])} {body_tokens[0]} {convert_token(body_tokens[2])}"
+        elif len(body_tokens) == 1:
+            body = convert_token(body_tokens[0])
+        else:
+            body = f"{body_tokens[0]}({', '.join(convert_token(x) for x in body_tokens[1:])})"
+        return f"lambda {params}: {body}"
+
     if fn in {"+", "-", "*", "/", "%", ">", "<", "=="}:
         if len(args) == 2:
-            return f"{args[0]} {fn} {args[1]}"
+            return f"{convert_token(args[0])} {fn} {convert_token(args[1])}"
 
     return f"{fn}({', '.join(convert_token(x) for x in args)})"
 
@@ -179,6 +192,9 @@ def convert_statement(text):
     # expression statement
     if text.startswith("["):
         return convert_token(text)
+
+    if "[" in text:
+        return convert_token(f"[{text}]")
 
     return text
 
