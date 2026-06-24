@@ -79,8 +79,11 @@ def compile_pist(source):
 
     lines = source.splitlines()
 
-    for raw in lines:
+    i = 0
+    while i < len(lines):
+        raw = lines[i]
         if not raw.strip():
+            i += 1
             continue
 
         indent, text = parse_line(raw)
@@ -89,6 +92,26 @@ def compile_pist(source):
             stack.pop()
             output.append(" " * (len(stack)-1)*4)
 
+        if is_block_call(text, lines, i, indent):
+            children_text = []
+            j = i + 1
+            while j < len(lines):
+                child_raw = lines[j]
+                if not child_raw.strip():
+                    j += 1
+                    continue
+                child_indent, child_text = parse_line(child_raw)
+                if child_indent <= indent:
+                    break
+                children_text.append(child_text)
+                j += 1
+
+            args = ", ".join(convert_token(c) for c in children_text)
+            py = f"{text}({args})"
+            output.append(" " * (len(stack)-1)*4 + py)
+            i = j
+            continue
+
         py = convert_statement(text)
 
         output.append(" " * (len(stack)-1)*4 + py)
@@ -96,7 +119,22 @@ def compile_pist(source):
         if opens_block(text):
             stack.append(indent + 4)
 
+        i += 1
+
     return "\n".join(output)
+
+
+def is_block_call(text, lines, i, indent):
+    if not text.isidentifier() or text in {"else", "try", "except", "finally"}:
+        return False
+    j = i + 1
+    while j < len(lines):
+        if not lines[j].strip():
+            j += 1
+            continue
+        child_indent, _ = parse_line(lines[j])
+        return child_indent > indent
+    return False
 
 
 def opens_block(text):
